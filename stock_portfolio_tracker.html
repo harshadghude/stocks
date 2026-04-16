@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Portfolio Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0F1117; --surface: #1A1D2E; --surface2: #222638;
+  --border: rgba(255,255,255,0.08); --text: #E8EAF0;
+  --muted: rgba(232,234,240,0.45); --green: #22C55E; --red: #EF4444;
+  --gold: #F59E0B; --blue: #3B82F6; --purple: #A78BFA;
+  --alert-green: rgba(34,197,94,0.15); --alert-red: rgba(239,68,68,0.15);
+}
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ── HEADER ── */
+.app-header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 14px 24px; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+}
+.app-title { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+.app-title span { color: var(--gold); }
+.header-meta { font-size: 11px; color: var(--muted); }
+.date-badge {
+  font-size: 11px; background: rgba(245,158,11,0.12); color: var(--gold);
+  border: 1px solid rgba(245,158,11,0.25); border-radius: 5px; padding: 3px 8px;
+}
+
+/* ── LAYOUT ── */
+.container { max-width: 1600px; margin: 0 auto; padding: 20px 16px; }
+.section-title {
+  font-size: 12px; font-weight: 600; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--muted); margin: 24px 0 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ── SUMMARY CARDS ── */
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 8px; }
+.sum-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px;
+}
+.sum-label { font-size: 10px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+.sum-value { font-size: 20px; font-weight: 700; }
+.sum-value.green { color: var(--green); }
+.sum-value.red { color: var(--red); }
+.sum-value.gold { color: var(--gold); }
+.sum-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* ── TABLE ── */
+.table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th {
+  background: var(--surface2); padding: 10px 8px; text-align: left;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--muted); white-space: nowrap; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 2;
+}
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.12s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(255,255,255,0.025); }
+tbody td { padding: 8px 8px; vertical-align: middle; }
+
+/* input cells */
+td input {
+  background: transparent; border: none; color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 12px;
+  width: 100%; min-width: 80px; outline: none; padding: 2px 4px;
+  border-radius: 4px; transition: background 0.1s;
+}
+td input:focus { background: rgba(255,255,255,0.07); }
+td.formula { color: var(--text); white-space: nowrap; }
+td.remarks-cell input { min-width: 200px; }
+
+/* profit/loss colour */
+td.profit { color: var(--green); font-weight: 600; }
+td.loss { color: var(--red); font-weight: 600; }
+
+/* alert row highlight */
+tr.alert-profit { background: var(--alert-green) !important; }
+tr.alert-loss { background: var(--alert-red) !important; }
+
+.alert-badge {
+  display: inline-block; font-size: 9px; font-weight: 700;
+  padding: 2px 5px; border-radius: 3px; margin-left: 4px; vertical-align: middle;
+}
+.badge-profit { background: rgba(34,197,94,0.2); color: var(--green); }
+.badge-loss { background: rgba(239,68,68,0.2); color: var(--red); }
+
+/* totals row */
+tr.totals-row td { font-weight: 700; background: var(--surface2); border-top: 2px solid var(--border); }
+
+/* ── NOTIFICATION PANEL ── */
+.notif-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px; margin-top: 16px;
+}
+.notif-title { font-size: 13px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.notif-log { max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.notif-item {
+  font-size: 11px; padding: 8px 10px; border-radius: 6px;
+  border-left: 3px solid; display: flex; align-items: flex-start; gap: 8px;
+}
+.notif-item.profit { background: rgba(34,197,94,0.08); border-color: var(--green); color: #86EFAC; }
+.notif-item.loss { background: rgba(239,68,68,0.08); border-color: var(--red); color: #FCA5A5; }
+.notif-item.info { background: rgba(59,130,246,0.08); border-color: var(--blue); color: #93C5FD; }
+.notif-time { font-size: 10px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+.notif-empty { font-size: 12px; color: var(--muted); padding: 8px 0; }
+
+/* ── SETTINGS ── */
+.settings-row {
+  display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 16px;
+}
+.settings-field { display: flex; flex-direction: column; gap: 4px; }
+.settings-field label { font-size: 10px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--muted); }
+.settings-field input, .settings-field select {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 12px; padding: 6px 10px;
+  border-radius: 6px; outline: none; min-width: 180px;
+}
+.settings-field input:focus { border-color: var(--blue); }
+.btn {
+  padding: 7px 14px; border-radius: 6px; border: none; cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; transition: all 0.15s;
+}
+.btn-primary { background: var(--blue); color: white; }
+.btn-primary:hover { background: #2563EB; }
+.btn-danger { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+.btn-danger:hover { background: rgba(239,68,68,0.25); }
+.btn-green { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+.btn-green:hover { background: rgba(34,197,94,0.25); }
+
+/* sold section */
+.sold-section-row td { opacity: 0.75; }
+
+.info-note {
+  font-size: 11px; color: var(--muted); background: rgba(59,130,246,0.06);
+  border: 1px solid rgba(59,130,246,0.15); border-radius: 6px; padding: 8px 12px;
+  margin-top: 8px;
+}
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div>
+    <div class="app-title">📈 Stock Portfolio <span>Tracker</span></div>
+    <div class="header-meta">Harshad · Active Portfolio</div>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center">
+    <span class="date-badge" id="date-badge">Loading...</span>
+    <button class="btn btn-green" onclick="checkAllAlerts()">🔔 Check Alerts</button>
+    <button class="btn btn-primary" onclick="saveData()">💾 Save</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- SETTINGS -->
+  <div class="section-title">Notification Settings</div>
+  <div class="settings-row">
+    <div class="settings-field">
+      <label>Phone (SMS)</label>
+      <input type="text" id="cfg-phone" value="+919820846889" placeholder="+919820846889">
+    </div>
+    <div class="settings-field">
+      <label>Email</label>
+      <input type="email" id="cfg-email" value="harshadghude@gmail.com" placeholder="email@example.com">
+    </div>
+    <div class="settings-field">
+      <label>Twilio SID</label>
+      <input type="text" id="cfg-sid" placeholder="ACxxxxxxxxxxxxxxx" value="">
+    </div>
+    <div class="settings-field">
+      <label>Twilio Auth Token</label>
+      <input type="password" id="cfg-token" placeholder="Auth token" value="">
+    </div>
+    <div class="settings-field">
+      <label>Twilio From Number</label>
+      <input type="text" id="cfg-from" placeholder="+1xxxxxxxxxx" value="">
+    </div>
+    <div class="settings-field">
+      <label>EmailJS Service ID</label>
+      <input type="text" id="cfg-emailjs-svc" placeholder="service_xxxxxx" value="">
+    </div>
+    <div class="settings-field">
+      <label>EmailJS Template ID</label>
+      <input type="text" id="cfg-emailjs-tpl" placeholder="template_xxxxxx" value="">
+    </div>
+    <div class="settings-field">
+      <label>EmailJS Public Key</label>
+      <input type="text" id="cfg-emailjs-key" placeholder="public_key" value="">
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="saveCfg()">Save Config</button>
+      <button class="btn btn-danger" onclick="clearNotifLog()">Clear Log</button>
+    </div>
+  </div>
+  <div class="info-note">
+    ℹ️ SMS uses <strong>Twilio API</strong>. Email uses <strong>EmailJS</strong> (free tier available at emailjs.com). Enter your credentials above — they are saved in your browser only.
+    Your Twilio number must be enabled for international SMS to India (+91).
+  </div>
+
+  <!-- SUMMARY -->
+  <div class="section-title">Portfolio Summary</div>
+  <div class="summary-grid">
+    <div class="sum-card"><div class="sum-label">Total Buy Value</div><div class="sum-value gold" id="s-buy">—</div></div>
+    <div class="sum-card"><div class="sum-label">Total Current Value</div><div class="sum-value" id="s-curr">—</div></div>
+    <div class="sum-card"><div class="sum-label">Active P/L</div><div class="sum-value" id="s-pl">—</div></div>
+    <div class="sum-card"><div class="sum-label">Realised P/L</div><div class="sum-value" id="s-realised">—</div></div>
+    <div class="sum-card"><div class="sum-label">Total P/L Till Date</div><div class="sum-value" id="s-total-pl">—</div></div>
+    <div class="sum-card"><div class="sum-label">P/L %</div><div class="sum-value" id="s-plpct">—</div></div>
+  </div>
+
+  <!-- ACTIVE PORTFOLIO -->
+  <div class="section-title">Active Holdings</div>
+  <div class="table-wrap">
+    <table id="active-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Stock Name</th>
+          <th>Total Buy Value ₹</th>
+          <th>Buy Value / Share ₹</th>
+          <th>No. of Stocks</th>
+          <th>Total Current Value ₹</th>
+          <th>Current Value / Stock ₹</th>
+          <th>Profit / Loss ₹</th>
+          <th>Loss at / Sell At ₹</th>
+          <th>Target ₹</th>
+          <th>Remarks</th>
+        </tr>
+      </thead>
+      <tbody id="active-body"></tbody>
+    </table>
+  </div>
+
+  <!-- OLD STOCKS -->
+  <div class="section-title">Old / Sold Holdings</div>
+  <div class="table-wrap">
+    <table id="sold-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Stock Name</th>
+          <th>Total Buy Value ₹</th>
+          <th>Buy Value / Share ₹</th>
+          <th>No. of Stocks</th>
+          <th>Total Current Value ₹</th>
+          <th>Current Value / Stock ₹</th>
+          <th>Profit / Loss ₹</th>
+          <th>Loss at / Sell At ₹</th>
+          <th>Target ₹</th>
+          <th>Remarks</th>
+          <th>Sold at (Total) ₹</th>
+          <th>Sell Value / Share ₹</th>
+          <th>Final P/L ₹</th>
+        </tr>
+      </thead>
+      <tbody id="sold-body"></tbody>
+    </table>
+  </div>
+  <div style="margin-top:10px;display:flex;gap:10px;">
+    <button class="btn btn-green" onclick="addActiveRow()">+ Add Active Stock</button>
+    <button class="btn btn-primary" onclick="addSoldRow()">+ Add Sold Stock</button>
+  </div>
+
+  <!-- OLD STOCKS SOLD LIST -->
+  <div class="section-title">Stocks Sold So Far (Reference)</div>
+  <div id="sold-list-container" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+    <div id="sold-list" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+    <button class="btn btn-primary" style="margin-top:10px;font-size:11px" onclick="addSoldListItem()">+ Add Stock Name</button>
+  </div>
+
+  <!-- NOTIFICATION LOG -->
+  <div class="section-title">Alert & Notification Log</div>
+  <div class="notif-panel">
+    <div class="notif-title">🔔 Triggered Alerts</div>
+    <div class="notif-log" id="notif-log">
+      <div class="notif-empty">No alerts triggered yet. Update "Current Value / Stock" to trigger alerts.</div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.emailjs.com/dist/email.min.js"></script>
+<script>
+// ── DATA ─────────────────────────────────────────────────────────────────
+const DEFAULT_ACTIVE = [
+  { name:'Union Bank',                      buy:50427, qty:266,  curr:49896, lossAt:null, target:null,   remarks:'28 stocks, Annual' },
+  { name:'Knowledge Marine & Engg Works',   buy:50897, qty:29,   curr:52983, lossAt:null, target:null,   remarks:'' },
+  { name:'Nippon India Silverbees',         buy:164870,qty:779,  curr:186017,lossAt:295,  target:null,   remarks:'Buy 84 shares in Sept 25. Buy 10K shares every month' },
+  { name:'SBIN',                            buy:100712,qty:92,   curr:100016,lossAt:null, target:null,   remarks:'' },
+  { name:'L&T',                             buy:68842, qty:19,   curr:78090, lossAt:3870, target:'4300-4500', remarks:'' },
+  { name:'Nippon India Goldbees',           buy:392765,qty:3109, curr:390583,lossAt:124,  target:null,   remarks:'' },
+  { name:'Hindustan Zinc',                  buy:46236, qty:69,   curr:40965, lossAt:null, target:null,   remarks:'' },
+  { name:'Hindustan Copper',                buy:61258, qty:101,  curr:56358, lossAt:null, target:null,   remarks:'' },
+  { name:'Maharashtra Bank',                buy:101010,qty:1525, curr:107360,lossAt:null, target:null,   remarks:'' },
+  { name:'Hindalco',                        buy:4530,  qty:5,    curr:5211,  lossAt:860,  target:null,   remarks:'' },
+  { name:'Bajaj Finance',                   buy:11856, qty:6,    curr:10996, lossAt:null, target:null,   remarks:'' },
+  { name:'Siemens',                         buy:54377, qty:18,   curr:63954, lossAt:null, target:null,   remarks:'' },
+  { name:'Torrent Power',                   buy:30415, qty:20,   curr:30320, lossAt:1475, target:'1590-1640', remarks:'' },
+];
+
+const DEFAULT_SOLD = [
+  { name:'Knowledge Marine & Engg Works', buy:19067, qty:16, curr:30144, lossAt:1780, target:2100, remarks:'Annual', soldAt:27863,  sellPerShare:null, finalPL:null },
+  { name:'SBIN',                          buy:2648,  qty:3,  curr:2953,  lossAt:null, target:null, remarks:'',       soldAt:3059,   sellPerShare:1019,  finalPL:null },
+  { name:'SAIL',                          buy:9996,  qty:67, curr:9801,  lossAt:9628, target:12730,remarks:'',       soldAt:null,   sellPerShare:146.27, finalPL:null },
+];
+
+const DEFAULT_SOLD_LIST = ['Lloyds Metal','Transrail','Scoda Tubes','A1 Ltd','Knowledge Marine & Engg Works','SBIN','Cempro'];
+const OLD_STOCKS_MISC_PL = -6163;   // "Old stocks sale" row M21
+const SILVERBEES_PL = 76654.997;   // "Silverbees & few others"
+
+let activeData = [];
+let soldData   = [];
+let soldList   = [];
+let notifLog   = [];
+let alertedStocks = new Set(); // prevent repeated alerts in same session
+
+// ── INIT ─────────────────────────────────────────────────────────────────
+function init() {
+  loadCfg();
+  const saved = localStorage.getItem('stockPortfolio_v2');
+  if (saved) {
+    try {
+      const d = JSON.parse(saved);
+      activeData = d.active || DEFAULT_ACTIVE;
+      soldData   = d.sold   || DEFAULT_SOLD;
+      soldList   = d.soldList || DEFAULT_SOLD_LIST;
+      notifLog   = d.notifLog || [];
+    } catch(e) { resetToDefaults(); }
+  } else {
+    resetToDefaults();
+  }
+  updateDateBadge();
+  renderActiveTable();
+  renderSoldTable();
+  renderSoldList();
+  renderNotifLog();
+  updateSummary();
+}
+
+function resetToDefaults() {
+  activeData = JSON.parse(JSON.stringify(DEFAULT_ACTIVE));
+  soldData   = JSON.parse(JSON.stringify(DEFAULT_SOLD));
+  soldList   = [...DEFAULT_SOLD_LIST];
+  notifLog   = [];
+}
+
+function saveData() {
+  localStorage.setItem('stockPortfolio_v2', JSON.stringify({ active:activeData, sold:soldData, soldList, notifLog }));
+  showToast('Data saved ✓');
+}
+
+// ── CONFIG ────────────────────────────────────────────────────────────────
+function saveCfg() {
+  const cfg = {
+    phone: document.getElementById('cfg-phone').value,
+    email: document.getElementById('cfg-email').value,
+    sid:   document.getElementById('cfg-sid').value,
+    token: document.getElementById('cfg-token').value,
+    from:  document.getElementById('cfg-from').value,
+    ejSvc: document.getElementById('cfg-emailjs-svc').value,
+    ejTpl: document.getElementById('cfg-emailjs-tpl').value,
+    ejKey: document.getElementById('cfg-emailjs-key').value,
+  };
+  localStorage.setItem('stockCfg', JSON.stringify(cfg));
+  showToast('Config saved ✓');
+}
+function loadCfg() {
+  const cfg = JSON.parse(localStorage.getItem('stockCfg') || '{}');
+  if (cfg.phone) document.getElementById('cfg-phone').value = cfg.phone;
+  if (cfg.email) document.getElementById('cfg-email').value = cfg.email;
+  if (cfg.sid)   document.getElementById('cfg-sid').value   = cfg.sid;
+  if (cfg.token) document.getElementById('cfg-token').value = cfg.token;
+  if (cfg.from)  document.getElementById('cfg-from').value  = cfg.from;
+  if (cfg.ejSvc) document.getElementById('cfg-emailjs-svc').value = cfg.ejSvc;
+  if (cfg.ejTpl) document.getElementById('cfg-emailjs-tpl').value = cfg.ejTpl;
+  if (cfg.ejKey) document.getElementById('cfg-emailjs-key').value = cfg.ejKey;
+}
+function getCfg() {
+  return JSON.parse(localStorage.getItem('stockCfg') || '{}');
+}
+
+// ── FORMULAS ──────────────────────────────────────────────────────────────
+function calcActive(row) {
+  const buy   = parseFloat(row.buy)  || 0;
+  const qty   = parseFloat(row.qty)  || 1;
+  const curr  = parseFloat(row.curr) || 0;
+  const buyPS = buy / qty;
+  const currTotal = curr;
+  const currPS = curr / qty;
+  const pl = curr - buy;
+  return { buyPS, currTotal, currPS, pl };
+}
+
+function calcSold(row) {
+  const buy   = parseFloat(row.buy)  || 0;
+  const qty   = parseFloat(row.qty)  || 1;
+  const curr  = parseFloat(row.curr) || 0;
+  const buyPS = buy / qty;
+  const currPS = curr / qty;
+  const pl = curr - buy;
+
+  let soldAtTotal = parseFloat(row.soldAt) || 0;
+  let sellPS = row.sellPerShare ? parseFloat(row.sellPerShare) : (soldAtTotal / qty);
+  if (!row.sellPerShare && soldAtTotal) sellPS = soldAtTotal / qty;
+  if (row.sellPerShare && !soldAtTotal) soldAtTotal = parseFloat(row.sellPerShare) * qty;
+  const finalPL = soldAtTotal ? soldAtTotal - buy : null;
+
+  return { buyPS, currPS, pl, soldAtTotal, sellPS, finalPL };
+}
+
+// ── SUMMARY ───────────────────────────────────────────────────────────────
+function updateSummary() {
+  let totalBuy  = activeData.reduce((s,r) => s + (parseFloat(r.buy)||0), 0);
+  let totalCurr = activeData.reduce((s,r) => s + (parseFloat(r.curr)||0), 0);
+  let activePL  = activeData.reduce((s,r) => s + calcActive(r).pl, 0);
+
+  // Realised = sold rows finalPL + old misc + silverbees
+  let realisedPL = OLD_STOCKS_MISC_PL + SILVERBEES_PL;
+  soldData.forEach(r => {
+    const c = calcSold(r);
+    if (c.finalPL !== null) realisedPL += c.finalPL;
+    else realisedPL += c.pl;
+  });
+
+  const totalPL   = activePL + realisedPL;
+  const plPct     = totalBuy ? (activePL * 100 / totalBuy) : 0;
+
+  const fmt = v => '₹' + Math.abs(v).toLocaleString('en-IN', {maximumFractionDigits:0});
+  const sign = v => v >= 0 ? '+' : '-';
+  const cls  = v => v >= 0 ? 'green' : 'red';
+
+  document.getElementById('s-buy').textContent   = fmt(totalBuy);
+  document.getElementById('s-buy').className      = 'sum-value gold';
+  document.getElementById('s-curr').textContent  = fmt(totalCurr);
+  document.getElementById('s-curr').className     = 'sum-value ' + cls(totalCurr - totalBuy);
+  document.getElementById('s-pl').textContent    = sign(activePL) + fmt(activePL);
+  document.getElementById('s-pl').className       = 'sum-value ' + cls(activePL);
+  document.getElementById('s-realised').textContent = sign(realisedPL) + fmt(realisedPL);
+  document.getElementById('s-realised').className    = 'sum-value ' + cls(realisedPL);
+  document.getElementById('s-total-pl').textContent = sign(totalPL) + fmt(totalPL);
+  document.getElementById('s-total-pl').className    = 'sum-value ' + cls(totalPL);
+  document.getElementById('s-plpct').textContent = (plPct >= 0 ? '+' : '') + plPct.toFixed(2) + '%';
+  document.getElementById('s-plpct').className    = 'sum-value ' + cls(plPct);
+}
+
+// ── ACTIVE TABLE ──────────────────────────────────────────────────────────
+function renderActiveTable() {
+  const tbody = document.getElementById('active-body');
+  tbody.innerHTML = '';
+
+  activeData.forEach((row, i) => {
+    const c = calcActive(row);
+    const alertStatus = getAlertStatus(row, c);
+    const tr = document.createElement('tr');
+    if (alertStatus === 'profit') tr.classList.add('alert-profit');
+    else if (alertStatus === 'loss') tr.classList.add('alert-loss');
+
+    const plCell = `<td class="formula ${c.pl >= 0 ? 'profit' : 'loss'}">${fmtNum(c.pl)} ${alertStatus==='profit'?'<span class="alert-badge badge-profit">🎯 TARGET</span>':alertStatus==='loss'?'<span class="alert-badge badge-loss">⚠️ LOSS</span>':''}</td>`;
+
+    tr.innerHTML = `
+      <td style="color:var(--muted);font-size:10px">${i+1}</td>
+      <td><input value="${esc(row.name)}" onchange="updateActive(${i},'name',this.value)" style="min-width:180px"></td>
+      <td><input type="number" value="${row.buy||''}" onchange="updateActive(${i},'buy',this.value)"></td>
+      <td class="formula">${fmtNum(c.buyPS)}</td>
+      <td><input type="number" value="${row.qty||''}" onchange="updateActive(${i},'qty',this.value)"></td>
+      <td><input type="number" value="${row.curr||''}" onchange="updateActive(${i},'curr',this.value)" style="color:${c.currTotal>=(row.buy||0)?'var(--green)':'var(--red)'}"></td>
+      <td class="formula">${fmtNum(c.currPS)}</td>
+      ${plCell}
+      <td><input type="number" value="${row.lossAt||''}" onchange="updateActive(${i},'lossAt',this.value)"></td>
+      <td><input value="${row.target||''}" onchange="updateActive(${i},'target',this.value)" style="min-width:90px"></td>
+      <td class="remarks-cell"><input value="${esc(row.remarks||'')}" onchange="updateActive(${i},'remarks',this.value)"></td>
+      <td><button class="btn btn-danger" style="padding:3px 8px;font-size:10px" onclick="deleteActive(${i})">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Totals row
+  const totalBuy  = activeData.reduce((s,r) => s + (parseFloat(r.buy)||0), 0);
+  const totalCurr = activeData.reduce((s,r) => s + (parseFloat(r.curr)||0), 0);
+  const totalPL   = activeData.reduce((s,r) => s + calcActive(r).pl, 0);
+  const tr2 = document.createElement('tr');
+  tr2.className = 'totals-row';
+  tr2.innerHTML = `<td></td><td style="color:var(--gold)">TOTAL</td><td>${fmtNum(totalBuy)}</td><td></td><td></td><td>${fmtNum(totalCurr)}</td><td></td><td class="${totalPL>=0?'profit':'loss'}">${fmtNum(totalPL)}</td><td colspan="4"></td>`;
+  tbody.appendChild(tr2);
+}
+
+function updateActive(i, field, val) {
+  activeData[i][field] = field==='name'||field==='remarks'||field==='target' ? val : parseFloat(val)||0;
+  const c = calcActive(activeData[i]);
+  checkAlertForRow(activeData[i], c, 'active');
+  renderActiveTable();
+  updateSummary();
+}
+function deleteActive(i) { if (confirm('Remove this stock?')) { activeData.splice(i,1); renderActiveTable(); updateSummary(); } }
+function addActiveRow() {
+  activeData.push({ name:'New Stock', buy:0, qty:0, curr:0, lossAt:null, target:null, remarks:'' });
+  renderActiveTable(); updateSummary();
+  setTimeout(() => document.querySelector('#active-body tr:last-child input')?.focus(), 50);
+}
+
+// ── SOLD TABLE ────────────────────────────────────────────────────────────
+function renderSoldTable() {
+  const tbody = document.getElementById('sold-body');
+  tbody.innerHTML = '';
+
+  soldData.forEach((row, i) => {
+    const c = calcSold(row);
+    const tr = document.createElement('tr');
+    tr.className = 'sold-section-row';
+    tr.innerHTML = `
+      <td style="color:var(--muted);font-size:10px">${i+1}</td>
+      <td><input value="${esc(row.name)}" onchange="updateSold(${i},'name',this.value)" style="min-width:180px"></td>
+      <td><input type="number" value="${row.buy||''}" onchange="updateSold(${i},'buy',this.value)"></td>
+      <td class="formula">${fmtNum(c.buyPS)}</td>
+      <td><input type="number" value="${row.qty||''}" onchange="updateSold(${i},'qty',this.value)"></td>
+      <td><input type="number" value="${row.curr||''}" onchange="updateSold(${i},'curr',this.value)"></td>
+      <td class="formula">${fmtNum(c.currPS)}</td>
+      <td class="formula ${c.pl>=0?'profit':'loss'}">${fmtNum(c.pl)}</td>
+      <td><input type="number" value="${row.lossAt||''}" onchange="updateSold(${i},'lossAt',this.value)"></td>
+      <td><input value="${row.target||''}" onchange="updateSold(${i},'target',this.value)" style="min-width:80px"></td>
+      <td class="remarks-cell"><input value="${esc(row.remarks||'')}" onchange="updateSold(${i},'remarks',this.value)"></td>
+      <td><input type="number" value="${row.soldAt||''}" onchange="updateSold(${i},'soldAt',this.value)"></td>
+      <td><input type="number" value="${row.sellPerShare||''}" onchange="updateSold(${i},'sellPerShare',this.value)"></td>
+      <td class="formula ${c.finalPL!=null?(c.finalPL>=0?'profit':'loss'):''}">${c.finalPL != null ? fmtNum(c.finalPL) : '—'}</td>
+      <td><button class="btn btn-danger" style="padding:3px 8px;font-size:10px" onclick="deleteSold(${i})">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Misc rows
+  const miscRows = [
+    { label:'Old Stocks Sale', pl: OLD_STOCKS_MISC_PL },
+    { label:'Silverbees & Few Others', pl: SILVERBEES_PL },
+  ];
+  miscRows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.className = 'sold-section-row';
+    tr.innerHTML = `<td></td><td style="color:var(--muted);font-style:italic">${r.label}</td><td colspan="12"></td><td class="formula ${r.pl>=0?'profit':'loss'}">${fmtNum(r.pl)}</td><td></td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Totals
+  let realisedPL = OLD_STOCKS_MISC_PL + SILVERBEES_PL;
+  soldData.forEach(r => { const c = calcSold(r); realisedPL += c.finalPL!=null ? c.finalPL : c.pl; });
+  const tr2 = document.createElement('tr');
+  tr2.className = 'totals-row';
+  tr2.innerHTML = `<td></td><td style="color:var(--gold)">TOTAL REALISED P/L</td><td colspan="12"></td><td class="${realisedPL>=0?'profit':'loss'}">${fmtNum(realisedPL)}</td><td></td>`;
+  tbody.appendChild(tr2);
+}
+
+function updateSold(i, field, val) {
+  soldData[i][field] = field==='name'||field==='remarks'||field==='target' ? val : parseFloat(val)||0;
+  renderSoldTable(); updateSummary();
+}
+function deleteSold(i) { if(confirm('Remove?')) { soldData.splice(i,1); renderSoldTable(); updateSummary(); } }
+function addSoldRow() {
+  soldData.push({ name:'New Stock', buy:0, qty:0, curr:0, lossAt:null, target:null, remarks:'', soldAt:null, sellPerShare:null });
+  renderSoldTable(); updateSummary();
+}
+
+// ── SOLD LIST ─────────────────────────────────────────────────────────────
+function renderSoldList() {
+  const container = document.getElementById('sold-list');
+  container.innerHTML = soldList.map((s, i) => `
+    <div style="display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;">
+      <input value="${esc(s)}" onchange="soldList[${i}]=this.value" style="background:transparent;border:none;color:var(--text);font-family:inherit;font-size:11px;width:${Math.max(80,s.length*7)}px;outline:none">
+      <button onclick="soldList.splice(${i},1);renderSoldList()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px">✕</button>
+    </div>`).join('');
+}
+function addSoldListItem() { soldList.push('New Stock'); renderSoldList(); }
+
+// ── ALERTS ────────────────────────────────────────────────────────────────
+function getAlertStatus(row, c) {
+  const lossAt  = parseFloat(row.lossAt);
+  const targetRaw = row.target;
+  const currPS  = c.currPS;
+
+  // Loss alert: currPS <= lossAt
+  if (!isNaN(lossAt) && lossAt > 0 && currPS <= lossAt) return 'loss';
+
+  // Target: handle range like "4300-4500" - alert if currPS >= lower bound
+  if (targetRaw) {
+    const targetStr = String(targetRaw);
+    const nums = targetStr.split('-').map(x => parseFloat(x.trim())).filter(n => !isNaN(n));
+    if (nums.length > 0) {
+      const lowerTarget = Math.min(...nums);
+      if (currPS >= lowerTarget) return 'profit';
+    }
+  }
+  return null;
+}
+
+function checkAlertForRow(row, c, section) {
+  const status = getAlertStatus(row, c);
+  if (!status) return;
+
+  const key = `${row.name}_${status}`;
+  if (alertedStocks.has(key)) return;
+  alertedStocks.add(key);
+
+  const pl = c.pl;
+  let message, type;
+  if (status === 'profit') {
+    message = `${row.name} matches ${row.target}, Profit = INR ${Math.abs(pl).toLocaleString('en-IN', {maximumFractionDigits:0})}`;
+    type = 'profit';
+  } else {
+    message = `${row.name} matches ${row.lossAt}, Loss = INR ${Math.abs(pl).toLocaleString('en-IN', {maximumFractionDigits:0})}`;
+    type = 'loss';
+  }
+
+  logNotification(message, type);
+  sendSMS(message);
+  sendEmail(row.name, message, type, pl);
+
+  // Browser alert
+  alert(`🔔 ALERT: ${message}`);
+}
+
+function checkAllAlerts() {
+  alertedStocks.clear(); // reset to allow re-check
+  activeData.forEach(row => {
+    const c = calcActive(row);
+    checkAlertForRow(row, c, 'active');
+  });
+  renderActiveTable();
+  showToast('Alert check complete');
+}
+
+// ── SMS via Twilio ────────────────────────────────────────────────────────
+async function sendSMS(message) {
+  const cfg = getCfg();
+  if (!cfg.sid || !cfg.token || !cfg.from) {
+    logNotification('SMS not sent — Twilio credentials not configured', 'info');
+    return;
+  }
+  try {
+    const body = new URLSearchParams({
+      To: cfg.phone || '+919820846889',
+      From: cfg.from,
+      Body: message
+    });
+    const resp = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${cfg.sid}/Messages.json`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Basic ' + btoa(cfg.sid + ':' + cfg.token),
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: body.toString()
+      }
+    );
+    const data = await resp.json();
+    if (data.sid) {
+      logNotification(`📱 SMS sent to ${cfg.phone}: "${message}"`, 'info');
+    } else {
+      logNotification(`📱 SMS failed: ${data.message||JSON.stringify(data)}`, 'info');
+    }
+  } catch(e) {
+    logNotification(`📱 SMS error: ${e.message}`, 'info');
+  }
+}
+
+// ── EMAIL via EmailJS ─────────────────────────────────────────────────────
+async function sendEmail(stockName, message, type, pl) {
+  const cfg = getCfg();
+  if (!cfg.ejSvc || !cfg.ejTpl || !cfg.ejKey) {
+    logNotification('Email not sent — EmailJS credentials not configured', 'info');
+    return;
+  }
+  try {
+    emailjs.init(cfg.ejKey);
+    const templateParams = {
+      to_email: cfg.email || 'harshadghude@gmail.com',
+      to_name: 'Harshad',
+      subject: `Stock Alert: ${stockName} — ${type === 'profit' ? 'TARGET HIT ✅' : 'LOSS TRIGGER ⚠️'}`,
+      message: message,
+      stock_name: stockName,
+      alert_type: type === 'profit' ? 'PROFIT — Target Hit' : 'LOSS — Sell Trigger',
+      pl_value: 'INR ' + Math.abs(pl).toLocaleString('en-IN', {maximumFractionDigits:0}),
+    };
+    const result = await emailjs.send(cfg.ejSvc, cfg.ejTpl, templateParams);
+    logNotification(`📧 Email sent to ${cfg.email}: "${message}"`, 'info');
+  } catch(e) {
+    logNotification(`📧 Email error: ${e.text || e.message}`, 'info');
+  }
+}
+
+// ── NOTIFICATION LOG ──────────────────────────────────────────────────────
+function logNotification(message, type) {
+  const now = new Date().toLocaleTimeString('en-IN');
+  notifLog.unshift({ message, type, time: now, date: new Date().toLocaleDateString('en-IN') });
+  renderNotifLog();
+}
+
+function renderNotifLog() {
+  const el = document.getElementById('notif-log');
+  if (!notifLog.length) {
+    el.innerHTML = '<div class="notif-empty">No alerts triggered yet. Update "Current Value / Stock" to trigger alerts.</div>';
+    return;
+  }
+  el.innerHTML = notifLog.map(n => `
+    <div class="notif-item ${n.type}">
+      <span>${n.type==='profit'?'🎯':n.type==='loss'?'⚠️':'ℹ️'}</span>
+      <span style="flex:1">${n.message}</span>
+      <span class="notif-time">${n.date} ${n.time}</span>
+    </div>`).join('');
+}
+
+function clearNotifLog() { notifLog = []; renderNotifLog(); }
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+function fmtNum(v) {
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  return v.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+}
+function esc(s) { return String(s||'').replace(/"/g, '&quot;'); }
+
+function updateDateBadge() {
+  const d = new Date();
+  document.getElementById('date-badge').textContent = d.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+}
+
+let toastTimer;
+function showToast(msg) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#22C55E;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;transition:opacity 0.3s;box-shadow:0 4px 20px rgba(0,0,0,0.4)';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.style.opacity = '0', 2500);
+}
+
+// ── KEYBOARD SAVE ─────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => { if ((e.ctrlKey||e.metaKey) && e.key==='s') { e.preventDefault(); saveData(); } });
+
+// ── BOOT ──────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
